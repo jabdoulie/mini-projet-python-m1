@@ -4,6 +4,94 @@ Système de monitoring temps réel en Python : API FastAPI + dashboard Streamlit
 
 ## Architecture
 
+### Vue d'ensemble
+
+```mermaid
+flowchart TB
+    subgraph Dev["Développeur"]
+        DEV[Git push / PR]
+    end
+
+    subgraph GH["GitHub"]
+        REPO[(Repository)]
+        CI[GitHub Actions\nci-cd.yml]
+    end
+
+    subgraph Local["Stack locale — Docker Compose"]
+        subgraph API["devops-monitor-api :8000"]
+            FAST[FastAPI + Uvicorn]
+            MET[metrics.py\npsutil]
+            POLL[poller.py\nhealth checks async]
+            STORE[(Store serveurs\nen mémoire)]
+            FAST --> MET
+            FAST --> STORE
+            POLL --> STORE
+        end
+
+        subgraph DASH["devops-monitor-dashboard :8501"]
+            ST[Streamlit]
+            TAB1[Onglet Métriques\nKPIs + graphique live]
+            TAB2[Onglet Serveurs\ntableau + formulaire]
+            ST --> TAB1
+            ST --> TAB2
+        end
+
+        DASH -->|HTTP REST\n/metrics, /servers| API
+    end
+
+    subgraph Monitored["Serveurs monitorés"]
+        S1[Serveur 1\nGET /health]
+        S2[Serveur 2\nGET /health]
+    end
+
+    DEV --> REPO
+    REPO --> CI
+    CI -->|lint + pytest| API
+    CI -->|docker compose build| Local
+    POLL -->|httpx async| S1
+    POLL -->|httpx async| S2
+```
+
+### Flux des données
+
+```mermaid
+sequenceDiagram
+    participant U as Utilisateur
+    participant D as Dashboard Streamlit
+    participant A as API FastAPI
+    participant P as Poller
+    participant S as Serveur monitoré
+
+    U->>D: Ouvre http://localhost:8501
+    D->>A: GET /metrics (toutes les 2 s)
+    A-->>D: cpu_percent, memory_percent, disk_percent
+    D-->>U: KPIs + graphique (60 points)
+
+    U->>D: Enregistre un serveur (formulaire)
+    D->>A: POST /servers + X-API-Key
+    A-->>D: Server créé (status unknown)
+
+    loop Toutes les 10 s
+        P->>S: GET /health
+        S-->>P: 200 / erreur
+        P->>A: Met à jour status UP/DEGRADED/DOWN
+    end
+
+    D->>A: GET /servers
+    A-->>D: Liste avec statuts colorés
+```
+
+### CI/CD (local)
+
+```mermaid
+flowchart LR
+    PUSH[Push / PR] --> TEST[Job test\nflake8 + pytest ≥ 75 %]
+    TEST --> BUILD[Job build\nDocker images]
+    BUILD --> LOCAL[Stack locale\nmake up]
+```
+
+### Structure du dépôt
+
 ```
 devops-monitor/
 ├── api/                  # Backend FastAPI (port 8000)
