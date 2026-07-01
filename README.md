@@ -51,6 +51,7 @@ make docker-down
 ## Tests
 
 ```bash
+cd devops-monitor
 make test
 make test-cov   # couverture >= 75 % sur le package api
 ```
