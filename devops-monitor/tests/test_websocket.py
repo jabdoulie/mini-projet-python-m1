@@ -38,4 +38,3 @@ async def test_ws_metrics_handles_disconnect() -> None:
     await ws_metrics(mock_ws)
 
     mock_ws.accept.assert_awaited_once()
-

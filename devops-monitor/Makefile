@@ -1,18 +1,37 @@
-.PHONY: install test test-cov run-api run-dashboard docker-build docker-up docker-down docker-logs ci
+.PHONY: up down logs test test-cov lint dev install run-api run-dashboard ci
 
 VENV := .venv
-PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
+PYTEST := $(VENV)/bin/pytest
+FLAKE8 := $(VENV)/bin/flake8
 
 install:
 	python3 -m venv $(VENV)
 	$(PIP) install -r requirements.txt
 
-test:
-	$(VENV)/bin/pytest tests/ -v
+up:
+	docker compose up --build -d
 
-test-cov:
-	$(VENV)/bin/pytest tests/ -v --cov=api --cov-fail-under=75
+down:
+	docker compose down -v
+
+logs:
+	docker compose logs -f
+
+test:
+	$(PYTEST) tests/ -v --cov=api --cov-fail-under=75
+
+test-cov: test
+
+lint:
+	$(FLAKE8) api/ dashboard/ tests/
+
+dev:
+	@echo "Starting API on :8000 and dashboard on :8501 (Ctrl+C to stop both)"
+	@trap 'kill 0' INT TERM; \
+	$(VENV)/bin/uvicorn api.main:app --reload --host 0.0.0.0 --port 8000 & \
+	$(VENV)/bin/streamlit run dashboard/app.py --server.address 0.0.0.0 --server.port 8501 & \
+	wait
 
 run-api:
 	$(VENV)/bin/uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
@@ -20,16 +39,4 @@ run-api:
 run-dashboard:
 	$(VENV)/bin/streamlit run dashboard/app.py --server.address 0.0.0.0 --server.port 8501
 
-docker-build:
-	docker compose build
-
-docker-up:
-	docker compose up -d
-
-docker-down:
-	docker compose down
-
-docker-logs:
-	docker compose logs -f
-
-ci: test-cov
+ci: lint test

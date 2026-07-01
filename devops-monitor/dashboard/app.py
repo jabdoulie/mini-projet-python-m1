@@ -93,7 +93,6 @@ def _render_metrics_content(placeholder) -> None:
             st.line_chart(chart_df)
 
 
-@st.fragment(run_every=2)
 def render_metrics_tab() -> None:
     """Display live system metrics and a CPU/memory chart."""
     if "metrics_history" not in st.session_state:
@@ -101,6 +100,8 @@ def render_metrics_tab() -> None:
 
     placeholder = st.empty()
     _render_metrics_content(placeholder)
+    time.sleep(2)
+    st.rerun()
 
 
 def render_servers_tab() -> None:
@@ -156,11 +157,11 @@ def main() -> None:
 
     metrics_tab, servers_tab = st.tabs(["Metrics", "Servers"])
 
-    with metrics_tab:
-        render_metrics_tab()
-
     with servers_tab:
         render_servers_tab()
+
+    with metrics_tab:
+        render_metrics_tab()
 
 
 if __name__ == "__main__":

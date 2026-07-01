@@ -1,75 +1,97 @@
 # DevOps Monitoring Dashboard
 
-Dashboard de monitoring DevOps avec une API FastAPI et un frontend Streamlit.
+Système de monitoring temps réel en Python : API FastAPI + dashboard Streamlit, containerisé avec Docker et validé par un pipeline GitHub Actions.
+
+## Architecture
+
+```
+devops-monitor/
+├── api/                  # Backend FastAPI (port 8000)
+│   ├── main.py           # Routes, WebSocket, lifespan
+│   ├── metrics.py        # Métriques psutil
+│   ├── poller.py         # Health checks async
+│   └── Dockerfile        # Build multi-stage
+├── dashboard/            # Frontend Streamlit (port 8501)
+│   ├── app.py
+│   └── Dockerfile
+├── tests/                # pytest (couverture ≥ 75 %)
+├── docker-compose.yml    # Stack locale
+├── Makefile              # Commandes standardisées
+└── .env.example          # Template des variables d'environnement
+```
+
+**Services :**
+
+| Service | URL locale | Rôle |
+|---------|------------|------|
+| API | http://localhost:8000 | Métriques, serveurs, WebSocket |
+| Dashboard | http://localhost:8501 | Visualisation temps réel |
+| Docs OpenAPI | http://localhost:8000/docs | Documentation interactive |
 
 ## Prérequis
 
-- Python 3.12+
-- Docker et Docker Compose (optionnel, recommandé)
+- Python 3.11+
+- Docker et Docker Compose
 - Make
 
-## Installation locale (sans Docker)
+## Lancement local (Docker — recommandé)
+
+```bash
+cd devops-monitor
+cp .env.example .env    # ajuster API_KEY si besoin
+make up                 # build + démarrage en arrière-plan
+make test               # lancer les tests
+make logs               # suivre les logs
+make down               # arrêter et supprimer les volumes
+```
+
+## Lancement local (sans Docker)
 
 ```bash
 cd devops-monitor
 make install
+make dev                # API (:8000) + dashboard (:8501) en parallèle
 ```
 
-Lancer l'API (terminal 1) :
+Ou dans deux terminaux :
 
 ```bash
 make run-api
-```
-
-Lancer le dashboard (terminal 2) :
-
-```bash
 make run-dashboard
 ```
 
-- API : http://localhost:8000
-- Dashboard : http://localhost:8501
-- Documentation OpenAPI : http://localhost:8000/docs
-
-Clé API par défaut : `dev-api-key` (header `X-API-Key`).  
-Variable d'environnement : `API_KEY`.
-
-## Lancement avec Docker
+## Tests et qualité
 
 ```bash
-cd devops-monitor
-make docker-build
-make docker-up
+make lint               # flake8
+make test               # pytest + couverture ≥ 75 %
+make ci                 # lint + test (identique à la CI)
 ```
 
-Arrêter les conteneurs :
+## Variables d'environnement
 
-```bash
-make docker-down
-```
+| Variable | Description | Exemple |
+|----------|-------------|---------|
+| `API_KEY` | Clé d'accès pour `POST /servers` et `DELETE /servers/{id}` | `dev-api-key` |
+| `API_BASE_URL` | URL de l'API vue par le dashboard | `http://api:8000` (Docker) ou `http://localhost:8000` (local) |
 
-## Tests
+> Ne jamais commiter le fichier `.env`. Seul `.env.example` est versionné.
 
-```bash
-cd devops-monitor
-make test
-make test-cov   # couverture >= 75 % sur le package api
-```
+## CI/CD
 
-## Structure
+Le workflow `.github/workflows/ci-cd.yml` exécute sur chaque push et PR :
 
-```
-devops-monitor/
-├── api/              # Backend FastAPI
-├── dashboard/        # Frontend Streamlit
-├── tests/            # Tests pytest
-├── Dockerfile.api
-├── Dockerfile.dashboard
-├── docker-compose.yml
-├── Makefile
-└── requirements.txt
-```
+1. **test** — `flake8` + `pytest --cov=api --cov-fail-under=75`
+2. **build** — construction des images Docker (push sur `main` uniquement)
 
-## CI
+## Endpoints API
 
-Le pipeline GitHub Actions exécute les tests avec couverture et vérifie le build Docker.
+| Méthode | Path | Auth | Description |
+|---------|------|------|-------------|
+| GET | `/health` | public | Liveness probe |
+| GET | `/metrics` | public | Snapshot CPU / mémoire / disque |
+| WS | `/ws/metrics` | public | Stream JSON toutes les secondes |
+| POST | `/servers` | API key | Enregistrer un serveur |
+| GET | `/servers` | public | Lister les serveurs |
+| DELETE | `/servers/{id}` | API key | Supprimer un serveur |
+| POST | `/servers/{id}/check` | public | Health check manuel |

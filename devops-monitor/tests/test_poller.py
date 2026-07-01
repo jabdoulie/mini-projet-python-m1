@@ -15,7 +15,8 @@ async def test_poll_server_up() -> None:
     """poll_server sets UP on HTTP 200."""
     server = Server(name="api", host="localhost", port=8000)
     local_store = {server.id: server}
-    mock_response = httpx.Response(200, request=httpx.Request("GET", "http://localhost:8000/health"))
+    request = httpx.Request("GET", "http://localhost:8000/health")
+    mock_response = httpx.Response(200, request=request)
 
     with patch("api.poller.httpx.AsyncClient") as mock_client:
         instance = mock_client.return_value.__aenter__.return_value
@@ -30,7 +31,8 @@ async def test_poll_server_degraded() -> None:
     """poll_server sets DEGRADED on non-200 responses."""
     server = Server(name="api", host="localhost", port=8000)
     local_store = {server.id: server}
-    mock_response = httpx.Response(503, request=httpx.Request("GET", "http://localhost:8000/health"))
+    request = httpx.Request("GET", "http://localhost:8000/health")
+    mock_response = httpx.Response(503, request=request)
 
     with patch("api.poller.httpx.AsyncClient") as mock_client:
         instance = mock_client.return_value.__aenter__.return_value
@@ -83,7 +85,8 @@ async def test_poll_server_trailing_slash_url() -> None:
     """poll_server normalises URLs with a trailing slash."""
     server = Server(name="api", host="localhost", port=8000)
     local_store = {server.id: server}
-    mock_response = httpx.Response(200, request=httpx.Request("GET", "http://localhost:8000/health"))
+    request = httpx.Request("GET", "http://localhost:8000/health")
+    mock_response = httpx.Response(200, request=request)
 
     with patch("api.poller.httpx.AsyncClient") as mock_client:
         instance = mock_client.return_value.__aenter__.return_value
